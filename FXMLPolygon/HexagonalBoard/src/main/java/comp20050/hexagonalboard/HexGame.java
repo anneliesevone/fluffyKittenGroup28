@@ -11,6 +11,11 @@ import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
 import java.util.Arrays;
 
+import javafx.collections.ObservableList;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.shape.Circle;
+
 public class HexGame {
     private static final double HEX_SIZE = 26;
     private static final double HEX_HEIGHT = HEX_SIZE * Math.sqrt(3);
@@ -80,14 +85,38 @@ public class HexGame {
     }
 
     private void handleHexClick(Polygon hex) {
-        if (!hex.getFill().equals(Color.WHITE)) return; // Ignore already clicked hexes
+        //Check if this hexagon is already occupied.
+        if (Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
+            return;
+        }
 
-        // Mark hex for the current player
-        hex.setFill(isPlayerOneTurn ? Color.BLUE : Color.RED);
+        // find the centre of the hexagon.
+        double centerX = 0, centerY = 0;
+        ObservableList<Double> points = hex.getPoints();
+        for (int i = 0; i < points.size(); i += 2) {
+            centerX += points.get(i);
+            centerY += points.get(i + 1);
+        }
+        int numPoints = points.size() / 2;
+        centerX /= numPoints;
+        centerY /= numPoints;
 
-        // Switch turns
+        //create a circle token for the current player.
+        double tokenRadius = HEX_SIZE * 0.6;
+        Circle token = new Circle(centerX, centerY, tokenRadius);
+        token.setFill(isPlayerOneTurn ? Color.BLUE : Color.RED);
+        token.setStroke(Color.BLACK);
+
+        // place the token circle on top of the hexagon.
+        Pane parent = (Pane) hex.getParent();
+        parent.getChildren().add(token);
+
+        // Mark this hexagon as occupied.
+        hex.getProperties().put("occupied", true);
+
+        // Switch turns and update the turn indicator.
         isPlayerOneTurn = !isPlayerOneTurn;
         turnLabel.setText("Your turn: " + (isPlayerOneTurn ? "Player 1" : "Player 2"));
+
     }
 }
-

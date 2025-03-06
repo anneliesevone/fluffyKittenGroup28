@@ -18,9 +18,9 @@ public class HexBoard {
         int hexCount = 1;  // ID tracking
 
         // Loop through axial coordinates to build the hexagonal board
-        for (int q = -BASE_SIZE + 1; q < BASE_SIZE; q++) {
-            int r1 = Math.max(-BASE_SIZE + 1, -q - BASE_SIZE + 1);
-            int r2 = Math.min(BASE_SIZE - 1, -q + BASE_SIZE - 1);
+        for (int q = -BASE_SIZE + 1; q < BASE_SIZE; q++) {//q is the column
+            int r1 = Math.max(-BASE_SIZE + 1, -q - BASE_SIZE + 1);//is the lowest width for a big hexagon row
+            int r2 = Math.min(BASE_SIZE - 1, -q + BASE_SIZE - 1);// max width for big hexagon row
             for (int r = r1; r <= r2; r++) {
                 double x = centerX + HEX_SIZE * 1.5 * q;
                 double y = centerY + HEX_HEIGHT * (r + q / 2.0);
