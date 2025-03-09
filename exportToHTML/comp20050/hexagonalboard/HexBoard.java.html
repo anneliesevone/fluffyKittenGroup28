@@ -1,0 +1,76 @@
+<html>
+<head>
+<title>HexBoard.java</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #2aacb8;}
+.s4 { color: #7a7e85;}
+.s5 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+HexBoard.java</font>
+</center></td></tr></table>
+<pre><span class="s0">package </span><span class="s1">comp20050</span><span class="s2">.</span><span class="s1">hexagonalboard</span><span class="s2">;</span>
+
+<span class="s0">import </span><span class="s1">javafx</span><span class="s2">.</span><span class="s1">scene</span><span class="s2">.</span><span class="s1">layout</span><span class="s2">.</span><span class="s1">Pane</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">javafx</span><span class="s2">.</span><span class="s1">scene</span><span class="s2">.</span><span class="s1">paint</span><span class="s2">.</span><span class="s1">Color</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">javafx</span><span class="s2">.</span><span class="s1">scene</span><span class="s2">.</span><span class="s1">shape</span><span class="s2">.</span><span class="s1">Polygon</span><span class="s2">;</span>
+<span class="s0">import </span><span class="s1">java</span><span class="s2">.</span><span class="s1">util</span><span class="s2">.</span><span class="s1">Arrays</span><span class="s2">;</span>
+
+<span class="s0">public class </span><span class="s1">HexBoard </span><span class="s2">{</span>
+    <span class="s0">private static final double </span><span class="s1">HEX_SIZE </span><span class="s2">= </span><span class="s3">26</span><span class="s2">;  </span><span class="s4">// Side length of hexagon</span>
+    <span class="s0">private static final double </span><span class="s1">HEX_HEIGHT </span><span class="s2">= </span><span class="s1">HEX_SIZE </span><span class="s2">* </span><span class="s1">Math</span><span class="s2">.</span><span class="s1">sqrt</span><span class="s2">(</span><span class="s3">3</span><span class="s2">);  </span><span class="s4">// Height of hexagon</span>
+    <span class="s0">private static final int </span><span class="s1">BASE_SIZE </span><span class="s2">= </span><span class="s3">7</span><span class="s2">;  </span><span class="s4">// Number of rings</span>
+
+    <span class="s0">public static </span><span class="s1">Pane createHexagonalBoard</span><span class="s2">() {</span>
+        <span class="s1">Pane pane </span><span class="s2">= </span><span class="s0">new </span><span class="s1">Pane</span><span class="s2">();</span>
+        <span class="s0">double </span><span class="s1">centerX </span><span class="s2">= </span><span class="s3">600</span><span class="s2">;  </span><span class="s4">// Center X of the board</span>
+        <span class="s0">double </span><span class="s1">centerY </span><span class="s2">= </span><span class="s3">350</span><span class="s2">;  </span><span class="s4">// Center Y of the board</span>
+
+        <span class="s0">int </span><span class="s1">hexCount </span><span class="s2">= </span><span class="s3">1</span><span class="s2">;  </span><span class="s4">// ID tracking</span>
+
+        <span class="s4">// Loop through axial coordinates to build the hexagonal board</span>
+        <span class="s0">for </span><span class="s2">(</span><span class="s0">int </span><span class="s1">q </span><span class="s2">= -</span><span class="s1">BASE_SIZE </span><span class="s2">+ </span><span class="s3">1</span><span class="s2">; </span><span class="s1">q </span><span class="s2">&lt; </span><span class="s1">BASE_SIZE</span><span class="s2">; </span><span class="s1">q</span><span class="s2">++) {</span><span class="s4">//q is the column</span>
+            <span class="s0">int </span><span class="s1">r1 </span><span class="s2">= </span><span class="s1">Math</span><span class="s2">.</span><span class="s1">max</span><span class="s2">(-</span><span class="s1">BASE_SIZE </span><span class="s2">+ </span><span class="s3">1</span><span class="s2">, -</span><span class="s1">q </span><span class="s2">- </span><span class="s1">BASE_SIZE </span><span class="s2">+ </span><span class="s3">1</span><span class="s2">);</span><span class="s4">//is the lowest width for a big hexagon row</span>
+            <span class="s0">int </span><span class="s1">r2 </span><span class="s2">= </span><span class="s1">Math</span><span class="s2">.</span><span class="s1">min</span><span class="s2">(</span><span class="s1">BASE_SIZE </span><span class="s2">- </span><span class="s3">1</span><span class="s2">, -</span><span class="s1">q </span><span class="s2">+ </span><span class="s1">BASE_SIZE </span><span class="s2">- </span><span class="s3">1</span><span class="s2">);</span><span class="s4">// max width for big hexagon row</span>
+            <span class="s0">for </span><span class="s2">(</span><span class="s0">int </span><span class="s1">r </span><span class="s2">= </span><span class="s1">r1</span><span class="s2">; </span><span class="s1">r </span><span class="s2">&lt;= </span><span class="s1">r2</span><span class="s2">; </span><span class="s1">r</span><span class="s2">++) {</span>
+                <span class="s0">double </span><span class="s1">x </span><span class="s2">= </span><span class="s1">centerX </span><span class="s2">+ </span><span class="s1">HEX_SIZE </span><span class="s2">* </span><span class="s3">1.5 </span><span class="s2">* </span><span class="s1">q</span><span class="s2">;</span>
+                <span class="s0">double </span><span class="s1">y </span><span class="s2">= </span><span class="s1">centerY </span><span class="s2">+ </span><span class="s1">HEX_HEIGHT </span><span class="s2">* (</span><span class="s1">r </span><span class="s2">+ </span><span class="s1">q </span><span class="s2">/ </span><span class="s3">2.0</span><span class="s2">);</span>
+
+                <span class="s1">Polygon hex </span><span class="s2">= </span><span class="s1">createHexagon</span><span class="s2">(</span><span class="s1">x</span><span class="s2">, </span><span class="s1">y</span><span class="s2">, </span><span class="s5">&quot;hex&quot; </span><span class="s2">+ </span><span class="s1">hexCount</span><span class="s2">++);</span>
+                <span class="s1">pane</span><span class="s2">.</span><span class="s1">getChildren</span><span class="s2">().</span><span class="s1">add</span><span class="s2">(</span><span class="s1">hex</span><span class="s2">);</span>
+            <span class="s2">}</span>
+        <span class="s2">}</span>
+
+        <span class="s0">return </span><span class="s1">pane</span><span class="s2">;</span>
+    <span class="s2">}</span>
+
+    <span class="s0">private static </span><span class="s1">Polygon createHexagon</span><span class="s2">(</span><span class="s0">double </span><span class="s1">x</span><span class="s2">, </span><span class="s0">double </span><span class="s1">y</span><span class="s2">, </span><span class="s1">String id</span><span class="s2">) {</span>
+        <span class="s1">Polygon hex </span><span class="s2">= </span><span class="s0">new </span><span class="s1">Polygon</span><span class="s2">();</span>
+        <span class="s0">double</span><span class="s2">[] </span><span class="s1">points </span><span class="s2">= </span><span class="s0">new double</span><span class="s2">[</span><span class="s3">12</span><span class="s2">];</span>
+
+        <span class="s0">for </span><span class="s2">(</span><span class="s0">int </span><span class="s1">i </span><span class="s2">= </span><span class="s3">0</span><span class="s2">; </span><span class="s1">i </span><span class="s2">&lt; </span><span class="s3">6</span><span class="s2">; </span><span class="s1">i</span><span class="s2">++) {</span>
+            <span class="s0">double </span><span class="s1">angle </span><span class="s2">= </span><span class="s1">Math</span><span class="s2">.</span><span class="s1">PI </span><span class="s2">/ </span><span class="s3">3 </span><span class="s2">* </span><span class="s1">i</span><span class="s2">;</span>
+            <span class="s1">points</span><span class="s2">[</span><span class="s1">i </span><span class="s2">* </span><span class="s3">2</span><span class="s2">] = </span><span class="s1">x </span><span class="s2">+ </span><span class="s1">HEX_SIZE </span><span class="s2">* </span><span class="s1">Math</span><span class="s2">.</span><span class="s1">cos</span><span class="s2">(</span><span class="s1">angle</span><span class="s2">);</span>
+            <span class="s1">points</span><span class="s2">[</span><span class="s1">i </span><span class="s2">* </span><span class="s3">2 </span><span class="s2">+ </span><span class="s3">1</span><span class="s2">] = </span><span class="s1">y </span><span class="s2">+ </span><span class="s1">HEX_SIZE </span><span class="s2">* </span><span class="s1">Math</span><span class="s2">.</span><span class="s1">sin</span><span class="s2">(</span><span class="s1">angle</span><span class="s2">);</span>
+        <span class="s2">}</span>
+
+        <span class="s1">hex</span><span class="s2">.</span><span class="s1">getPoints</span><span class="s2">().</span><span class="s1">addAll</span><span class="s2">(</span><span class="s1">Arrays</span><span class="s2">.</span><span class="s1">stream</span><span class="s2">(</span><span class="s1">points</span><span class="s2">).</span><span class="s1">boxed</span><span class="s2">().</span><span class="s1">toArray</span><span class="s2">(</span><span class="s1">Double</span><span class="s2">[]</span><span class="s1">::</span><span class="s0">new</span><span class="s2">));</span>
+        <span class="s1">hex</span><span class="s2">.</span><span class="s1">setFill</span><span class="s2">(</span><span class="s1">Color</span><span class="s2">.</span><span class="s1">WHITE</span><span class="s2">);</span>
+        <span class="s1">hex</span><span class="s2">.</span><span class="s1">setStroke</span><span class="s2">(</span><span class="s1">Color</span><span class="s2">.</span><span class="s1">BLACK</span><span class="s2">);</span>
+        <span class="s1">hex</span><span class="s2">.</span><span class="s1">setId</span><span class="s2">(</span><span class="s1">id</span><span class="s2">);</span>
+        <span class="s1">hex</span><span class="s2">.</span><span class="s1">setOnMouseClicked</span><span class="s2">(</span><span class="s1">event -&gt; hex</span><span class="s2">.</span><span class="s1">setFill</span><span class="s2">(</span><span class="s1">Color</span><span class="s2">.</span><span class="s1">BLACK</span><span class="s2">));  </span><span class="s4">// Click to change color</span>
+
+        <span class="s0">return </span><span class="s1">hex</span><span class="s2">;</span>
+    <span class="s2">}</span>
+<span class="s2">}</span>
+</pre>
+</body>
+</html>
