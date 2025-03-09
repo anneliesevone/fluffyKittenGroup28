@@ -1,15 +1,24 @@
 package comp20050.hexagonalboard;
 
 import javafx.application.Platform;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.*;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
+
 import java.util.Arrays;
+import java.util.Objects;
 
 public class HexGame {
     private static final double HEX_SIZE = 26;
@@ -17,22 +26,50 @@ public class HexGame {
     private static final int BASE_SIZE = 7;
 
     private boolean isPlayerOneTurn = true;  // Track turns
+    private ImageView turnIcon; // The image that represents the turn indicator
     private Label turnLabel;
 
     public void startGame(Stage stage) {
         BorderPane root = new BorderPane();
         Pane hexBoard = createHexagonalBoard();
 
-        // Turn Label
         turnLabel = new Label("Your turn: Player 1");
         turnLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px;");
+
+        // Load player icons from resources
+        Image player1Icon = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player1.png")));
+        Image player2Icon = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player2.png")));
+        turnIcon = new ImageView(player1Icon);
+
+        // Style the turn indicator icon
+        turnIcon.setFitWidth(50);
+        turnIcon.setFitHeight(50);
+
+
+        // Enable drag-and-drop on the turn indicator
+        turnIcon.setOnDragDetected(event -> {
+            Dragboard db = turnIcon.startDragAndDrop(TransferMode.MOVE);
+            ClipboardContent content = new ClipboardContent();
+            content.putImage(turnIcon.getImage());
+            db.setContent(content);
+            event.consume();
+        });
 
         // Exit Button
         Button exitButton = new Button("Exit");
         exitButton.setOnAction(e -> Platform.exit());
 
         // Layout
-        root.setTop(turnLabel);
+        AnchorPane topPane = new AnchorPane();
+        turnIcon.setLayoutX(30); // Set X position
+        turnIcon.setLayoutY(29.5); // Set Y position
+
+        turnLabel.setLayoutX(80); // Position label next to icon
+        turnLabel.setLayoutY(30);
+
+        topPane.getChildren().addAll(turnIcon, turnLabel);
+        root.setTop(topPane);
+
         root.setCenter(hexBoard);
         root.setBottom(exitButton);
 
@@ -74,20 +111,71 @@ public class HexGame {
         hex.getPoints().addAll(Arrays.stream(points).boxed().toArray(Double[]::new));
         hex.setFill(Color.WHITE);
         hex.setStroke(Color.BLACK);
+
+        // Enable drag-and-drop onto the hexagon
+        hex.setOnDragOver(event -> {
+            if (event.getGestureSource() != hex && event.getDragboard().hasImage()) {
+                event.acceptTransferModes(TransferMode.MOVE);
+            }
+            event.consume();
+        });
+
+        hex.setOnDragDropped(event -> handleDragDrop(event, hex));
+
         hex.setOnMouseClicked(event -> handleHexClick(hex));
 
         return hex;
     }
 
     private void handleHexClick(Polygon hex) {
-        if (!hex.getFill().equals(Color.WHITE)) return; // Ignore already clicked hexes
+        if (Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
+            return;
+        }
 
-        // Mark hex for the current player
-        hex.setFill(isPlayerOneTurn ? Color.BLUE : Color.RED);
+        placeToken(hex);
+    }
 
-        // Switch turns
+    private void handleDragDrop(DragEvent event, Polygon hex) {
+        if (Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
+            return;
+        }
+
+        Dragboard db = event.getDragboard();
+        if (db.hasImage()) {
+            placeToken(hex);
+            event.setDropCompleted(true);
+        } else {
+            event.setDropCompleted(false);
+        }
+        event.consume();
+    }
+
+    private void placeToken(Polygon hex) {
+        double centerX = 0, centerY = 0;
+        var points = hex.getPoints();
+        for (int i = 0; i < points.size(); i += 2) {
+            centerX += points.get(i);
+            centerY += points.get(i + 1);
+        }
+        centerX /= ((double) points.size() / 2);
+        centerY /= ((double) points.size() / 2);
+
+        double tokenRadius = HEX_SIZE * 0.6;
+        Circle token = new Circle(centerX, centerY, tokenRadius);
+        token.setFill(isPlayerOneTurn ? Color.BLUE : Color.RED);
+        token.setStroke(Color.BLACK);
+
+        Pane parent = (Pane) hex.getParent();
+        parent.getChildren().add(token);
+
+        hex.getProperties().put("occupied", true);
+
+        // Switch turns and update the turn icon
         isPlayerOneTurn = !isPlayerOneTurn;
         turnLabel.setText("Your turn: " + (isPlayerOneTurn ? "Player 1" : "Player 2"));
+        Image newIcon = isPlayerOneTurn
+                ? new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player1.png")))
+                : new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player2.png")));
+        turnIcon.setImage(newIcon);
     }
 }
-
