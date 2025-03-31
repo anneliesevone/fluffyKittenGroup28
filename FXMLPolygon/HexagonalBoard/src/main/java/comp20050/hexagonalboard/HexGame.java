@@ -112,15 +112,20 @@ public class HexGame {
         hex.setFill(Color.WHITE);
         hex.setStroke(Color.BLACK);
 
-        // Enable drag-and-drop onto the hexagon
-        hex.setOnDragOver(event -> {
-            if (event.getGestureSource() != hex && event.getDragboard().hasImage()) {
-                event.acceptTransferModes(TransferMode.MOVE);
-            }
-            event.consume();
+
+        // Only temporarily highlight on hover if unoccupied
+        hex.setOnMouseEntered(event -> {
+            if (!Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
+                hex.setFill(Color.LIGHTYELLOW);  // Highlight colour
+            }//check if hex is not already occupied using .get("occupied") property
+            //if empty fill with highlight colour
         });
 
-        hex.setOnDragDropped(event -> handleDragDrop(event, hex));
+        hex.setOnMouseExited(event -> {
+            if (!Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
+                hex.setFill(Color.WHITE);  // Reset to default
+            }
+        });
 
         hex.setOnMouseClicked(event -> handleHexClick(hex));
 
@@ -169,6 +174,7 @@ public class HexGame {
         parent.getChildren().add(token);
 
         hex.getProperties().put("occupied", true);
+        hex.setFill(Color.WHITE); //background set white after token place
 
         // Switch turns and update the turn icon
         isPlayerOneTurn = !isPlayerOneTurn;
