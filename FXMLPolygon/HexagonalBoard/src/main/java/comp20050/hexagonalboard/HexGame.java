@@ -3,12 +3,13 @@ package comp20050.hexagonalboard;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.*;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -22,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
 
-
 public class HexGame {
     private static final double HEX_SIZE = 26;
     private static final double HEX_HEIGHT = HEX_SIZE * Math.sqrt(3);
@@ -31,6 +31,7 @@ public class HexGame {
     private boolean isPlayerOneTurn = true;  // Track turns
     private ImageView turnIcon; // The image that represents the turn indicator
     private Label turnLabel;
+    private Label messageLabel; // New label for displaying messages (instead of error popups)
     private int player1TokensPlaced = 0;
     private int player2TokensPlaced = 0;
 
@@ -41,6 +42,11 @@ public class HexGame {
         turnLabel = new Label("Your turn: Player 1");
         turnLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px;");
 
+        // New message label for in-game messages
+        messageLabel = new Label();
+        messageLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px;");
+        messageLabel.setText(""); // Start with an empty message
+
         // Load player icons from resources
         Image player1Icon = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player1.png")));
         Image player2Icon = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player2.png")));
@@ -49,7 +55,6 @@ public class HexGame {
         // Style the turn indicator icon
         turnIcon.setFitWidth(50);
         turnIcon.setFitHeight(50);
-
 
         // Enable drag-and-drop on the turn indicator
         turnIcon.setOnDragDetected(event -> {
@@ -64,7 +69,7 @@ public class HexGame {
         Button exitButton = new Button("Exit");
         exitButton.setOnAction(e -> Platform.exit());
 
-        // Layout
+        // Layout for the top
         AnchorPane topPane = new AnchorPane();
         turnIcon.setLayoutX(30); // Set X position
         turnIcon.setLayoutY(29.5); // Set Y position
@@ -75,8 +80,13 @@ public class HexGame {
         topPane.getChildren().addAll(turnIcon, turnLabel);
         root.setTop(topPane);
 
+        // Layout for the bottom: message text and exit button in an HBox
+        HBox bottomBox = new HBox(10);
+        bottomBox.setAlignment(Pos.CENTER);
+        bottomBox.getChildren().addAll(messageLabel, exitButton);
+        root.setBottom(bottomBox);
+
         root.setCenter(hexBoard);
-        root.setBottom(exitButton);
 
         Scene scene = new Scene(root, 650, 650);
         stage.setTitle("HexOust Game");
@@ -117,12 +127,11 @@ public class HexGame {
         hex.setFill(Color.WHITE);
         hex.setStroke(Color.BLACK);
 
-
         // Only temporarily highlight on hover if unoccupied
         hex.setOnMouseEntered(event -> {
             if (!Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
                 hex.setFill(Color.LIGHTYELLOW);  // Highlight color
-            }//check if hex is not already occupied using z
+            }
         });
 
         hex.setOnMouseExited(event -> {
@@ -137,25 +146,22 @@ public class HexGame {
     }
 
     private void handleHexClick(Polygon hex) {
-        // Always allow click to be processed
         Object occupied = hex.getProperties().get("occupied");
 
         if (Boolean.TRUE.equals(occupied)) {
             System.out.println("Triggering invalid move alert!");
-
-            showInvalidMoveAlert("That hexagon is already occupied!");
+            showInvalidMoveMessage("That hexagon is already occupied!");
             return; // Don’t place the token
         }
 
         placeToken(hex);
     }
 
-
-    private void handleDragDrop(DragEvent event, Polygon hex) {
+    private void handleDragDrop(javafx.scene.input.DragEvent event, Polygon hex) {
         Object occupied = hex.getProperties().get("occupied");
 
         if (Boolean.TRUE.equals(occupied)) {
-            showInvalidMoveAlert("You can't drop a token there — it's already occupied!");
+            showInvalidMoveMessage("You can't drop a token there — it's already occupied!");
             event.setDropCompleted(false);
             return;
         }
@@ -169,7 +175,6 @@ public class HexGame {
         }
         event.consume();
     }
-
 
     private void placeToken(Polygon hex) {
         double centerX = 0, centerY = 0;
@@ -240,7 +245,8 @@ public class HexGame {
                 parent.getChildren().remove(token);
                 hex.getProperties().put("occupied", false);
                 hex.getProperties().remove("player");
-                System.out.println("Illegal capturing move: must touch an opponent stone.");
+                // Instead of showing an error box, update the text message in the game.
+                showInvalidMoveMessage("Illegal capturing move: must touch an opponent stone.");
                 return;
             }
 
@@ -306,6 +312,8 @@ public class HexGame {
             return;
         }
 
+        // Clear any previous error message when a valid move is made.
+        messageLabel.setText("");
 
         isPlayerOneTurn = !isPlayerOneTurn;
         turnLabel.setText("Your turn: " + (isPlayerOneTurn ? "Player 1" : "Player 2"));
@@ -316,20 +324,7 @@ public class HexGame {
         turnIcon.setImage(newIcon);
     }
 
-
-
-
-    private void showWinAlert(String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Game Over");
-            alert.setHeaderText(null);
-            alert.setContentText(message);
-            alert.showAndWait();
-            Platform.exit(); // optionally exit game after win
-        });
-    }
-    // (Helper) method to check if two hexes are adjacent based on center distance
+    // Helper method to check if two hexes are adjacent based on center distance
     private boolean isAdjacent(Polygon hex1, Polygon hex2) {
         double x1 = 0, y1 = 0;
         for (int i = 0; i < hex1.getPoints().size(); i += 2) {
@@ -351,11 +346,10 @@ public class HexGame {
         return distance < HEX_SIZE * 2.0; // Rough threshold for adjacency
     }
 
-    // (Helper) method to compute the group size for a given player starting at a hex
+    // Helper method to compute the group size for a given player starting at a hex
     private int computeGroupSize(Polygon hex, String player, Pane parent) {
-        // iterate over all hexes in parent.
-        java.util.List<Polygon> queue = new java.util.ArrayList<>();
-        java.util.List<Polygon> visited = new java.util.ArrayList<>();
+        java.util.List<Polygon> queue = new ArrayList<>();
+        java.util.List<Polygon> visited = new ArrayList<>();
         queue.add(hex);
         while (!queue.isEmpty()) {
             Polygon current = queue.remove(0);
@@ -377,9 +371,8 @@ public class HexGame {
         return visited.size();
     }
 
-    // (Helper) method to remove a token from a hex and mark it as unoccupied
+    // Helper method to remove a token from a hex and mark it as unoccupied
     private void removeToken(Polygon hex, Pane parent) {
-        // Remove the Circle token associated with this hex by checking for a Circle near its center.
         double centerX = 0, centerY = 0;
         var points = hex.getPoints();
         for (int i = 0; i < points.size(); i += 2) {
@@ -388,7 +381,6 @@ public class HexGame {
         }
         centerX /= ((double) points.size() / 2);
         centerY /= ((double) points.size() / 2);
-        // Iterate over a copy of the children list
         for (Object obj : new ArrayList<>(parent.getChildren())) {
             if (obj instanceof Circle) {
                 Circle token = (Circle) obj;
@@ -405,14 +397,8 @@ public class HexGame {
         hex.setFill(Color.WHITE);
     }
 
-    private void showInvalidMoveAlert(String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("Invalid Move");
-            alert.setHeaderText(null);
-            alert.setContentText(message);
-            alert.showAndWait();
-        });
+    // Instead of showing an alert, update the messageLabel text to display the message.
+    private void showInvalidMoveMessage(String message) {
+        Platform.runLater(() -> messageLabel.setText(message));
     }
-
 }
