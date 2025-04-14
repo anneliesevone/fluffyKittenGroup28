@@ -24,7 +24,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public class HexGame {
-    private static final double HEX_SIZE = 26;
+    private static final double HEX_SIZE = 23;
     private static final double HEX_HEIGHT = HEX_SIZE * Math.sqrt(3);
     private static final int BASE_SIZE = 7;
 
@@ -36,6 +36,10 @@ public class HexGame {
     private Button restartButton;            // Restart button (hidden until game over)
     private int player1TokensPlaced = 0;
     private int player2TokensPlaced = 0;
+    private int player1Wins = 0;
+    private int player2Wins = 0;
+    private Label scoreLabel; // Shows the win count
+
 
     public void startGame(Stage stage) {
         // Capture current full-screen state
@@ -49,7 +53,9 @@ public class HexGame {
 
         BorderPane root = new BorderPane();
         Pane hexBoard = createHexagonalBoard();
+        hexBoard.setMaxHeight(1000); // Limit board height so it doesn’t cover buttons
 
+        // Create label to indicate which player's turn it is
         turnLabel = new Label("Your turn: Player 1");
         turnLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px;");
 
@@ -57,6 +63,10 @@ public class HexGame {
         messageLabel = new Label();
         messageLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px;");
         messageLabel.setText("");
+        // Label to track wins
+        scoreLabel = new Label("Wins - Player 1 (BLUE): " + player1Wins + " | Player 2 (RED): " + player2Wins);
+        scoreLabel.setStyle("-fx-font-size: 14px; -fx-padding: 10px;");
+
 
         // Load player icons from resources
         Image player1Icon = new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player1.png")));
@@ -76,32 +86,35 @@ public class HexGame {
 
         // Exit Button
         Button exitButton = new Button("Exit");
-        exitButton.setOnAction(e -> Platform.exit());
+        exitButton.setOnAction(e -> {
+            System.out.println("Exit button clicked");
+            Platform.exit();
+            System.exit(0); // Ensure the app exits even if Platform.exit fails
+        });
 
         // Restart Button (hidden until game over)
         restartButton = new Button("Restart");
         restartButton.setVisible(false);
         restartButton.setOnAction(e -> {
+            System.out.println("Restart button clicked");
             Stage currentStage = (Stage) restartButton.getScene().getWindow();
             startGame(currentStage);
         });
 
         // Layout for the top: turn indicator and turn label
-        AnchorPane topPane = new AnchorPane();
-        turnIcon.setLayoutX(30);
-        turnIcon.setLayoutY(29.5);
-        turnLabel.setLayoutX(80);
-        turnLabel.setLayoutY(30);
-        topPane.getChildren().addAll(turnIcon, turnLabel);
-        root.setTop(topPane);
+        HBox topBox = new HBox(10, turnIcon, turnLabel);
+        topBox.setAlignment(Pos.CENTER_LEFT);
+        topBox.setStyle("-fx-padding: 10px;");
 
         // Layout for the bottom: message label, restart and exit buttons
-        HBox bottomBox = new HBox(10);
+        HBox bottomBox = new HBox(20, messageLabel, scoreLabel, restartButton, exitButton);
         bottomBox.setAlignment(Pos.CENTER);
-        bottomBox.getChildren().addAll(messageLabel, restartButton, exitButton);
-        root.setBottom(bottomBox);
+        bottomBox.setStyle("-fx-padding: 20px; -fx-background-color: #eeeeee;");
+        bottomBox.setPrefHeight(30);
 
+        root.setTop(topBox);
         root.setCenter(hexBoard);
+        root.setBottom(bottomBox);
 
         // Create scene using fixed dimensions (or use stage.getWidth/Height if preferred)
         Scene scene = new Scene(root, 650, 650);
@@ -115,10 +128,11 @@ public class HexGame {
         }
     }
 
+
     private Pane createHexagonalBoard() {
         Pane pane = new Pane();
         double centerX = 500;
-        double centerY = 300;
+        double centerY = 230;
 
         for (int q = -BASE_SIZE + 1; q < BASE_SIZE; q++) {
             int r1 = Math.max(-BASE_SIZE + 1, -q - BASE_SIZE + 1);
@@ -298,13 +312,22 @@ public class HexGame {
             }
 
             if ((player1TokensPlaced > 0 && player2TokensPlaced > 0) && !opponentHasTokens) {
-                String winner = isPlayerOneTurn ? "Player 1 (BLUE)" : "Player 2 (RED)";
+                String winner;
+                if (isPlayerOneTurn) {
+                    player1Wins++;
+                    winner = "Player 1 (BLUE)";
+                } else {
+                    player2Wins++;
+                    winner = "Player 2 (RED)";
+                }
                 turnLabel.setText("🎉 " + winner + " wins!");
                 turnIcon.setImage(null);
+                scoreLabel.setText("Wins - Player 1 (BLUE): " + player1Wins + " | Player 2 (RED): " + player2Wins);
                 gameOver = true;
                 restartButton.setVisible(true);
                 return;
             }
+
 
             System.out.println("Capturing move performed. Make another move!");
             messageLabel.setText("");
@@ -421,4 +444,6 @@ public class HexGame {
     private void showInvalidMoveMessage(String message) {
         Platform.runLater(() -> messageLabel.setText(message));
     }
+
+
 }

@@ -5,6 +5,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Polygon;
 import java.util.Arrays;
 
+
 public class HexBoard {
     private static final double HEX_SIZE = 26;  // Side length of hexagon
     private static final double HEX_HEIGHT = HEX_SIZE * Math.sqrt(3);  // Height of hexagon
