@@ -19,9 +19,7 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.*;
 
 public class HexGame {
     private static final double HEX_SIZE = 23;
@@ -190,28 +188,14 @@ public class HexGame {
         placeToken(hex);
     }
 
-    private void handleDragDrop(javafx.scene.input.DragEvent event, Polygon hex) {
-        // Ignore drag events if game is over.
-        if (gameOver) return;
-
-        Object occupied = hex.getProperties().get("occupied");
-        if (Boolean.TRUE.equals(occupied)) {
-            showInvalidMoveMessage("You can't drop a token there — it's already occupied!");
-            event.setDropCompleted(false);
-            return;
-        }
-
-        Dragboard db = event.getDragboard();
-        if (db.hasImage()) {
-            placeToken(hex);
-            event.setDropCompleted(true);
-        } else {
-            event.setDropCompleted(false);
-        }
-        event.consume();
-    }
-
+    /*
+    Places a token or captures opponent stones according to game rules.
+    Draws the token at the center of the clicked hex.
+    Updates internal occupied/player flags and placement counters.
+    Performs multi-hex capture when your group touches smaller opponent groups.
+   */
     private void placeToken(Polygon hex) {
+        // Calculate crenter of hex and draw token
         double centerX = 0, centerY = 0;
         var points = hex.getPoints();
         for (int i = 0; i < points.size(); i += 2) {
@@ -221,79 +205,72 @@ public class HexGame {
         centerX /= (points.size() / 2.0);
         centerY /= (points.size() / 2.0);
 
+        //Create and style the token (circle)
         double tokenRadius = HEX_SIZE * 0.6;
         Circle token = new Circle(centerX, centerY, tokenRadius);
         token.setFill(isPlayerOneTurn ? Color.BLUE : Color.RED);
         token.setStroke(Color.BLACK);
 
+        //Add token to the board pane
         Pane parent = (Pane) hex.getParent();
         parent.getChildren().add(token);
 
+        // mark the hex as occupied by current player
         hex.getProperties().put("occupied", true);
-        hex.getProperties().put("player", isPlayerOneTurn ? "Player1" : "Player2");
+        String me = isPlayerOneTurn ? "Player1" : "Player2";
+        hex.getProperties().put("player", me);
         hex.setFill(Color.WHITE);
 
+        // Increment the player's placed-tokens counter
         if (isPlayerOneTurn) {
             player1TokensPlaced++;
         } else {
             player2TokensPlaced++;
         }
 
-        boolean enlargesGroup = false;
-        for (Object obj : parent.getChildren()) {
-            if (obj instanceof Polygon otherHex && otherHex != hex) {
-                if (Boolean.TRUE.equals(otherHex.getProperties().get("occupied"))
-                        && isAdjacent(hex, otherHex)
-                        && (isPlayerOneTurn ? "Player1".equals(otherHex.getProperties().get("player"))
-                        : "Player2".equals(otherHex.getProperties().get("player")))) {
-                    enlargesGroup = true;
-                    break;
-                }
-            }
-        }
+        // Compute your connected group of stones after placement
+        List<Polygon> myGroup = computeGroup(hex, me, parent);
 
-        if (enlargesGroup) {
-            int newGroupSize = computeGroupSize(hex, isPlayerOneTurn ? "Player1" : "Player2", parent);
-            boolean touchesOpponent = false;
+        // If your group grew larger (size > 1), attempt to capture adjacent smaller opponent groups
+        if (myGroup.size() > 1) {
+            int myGroupSize = myGroup.size();
+            String them = isPlayerOneTurn ? "Player2" : "Player1";
 
-            for (Object obj : parent.getChildren()) {
-                if (obj instanceof Polygon otherHex && otherHex != hex) {
-                    if (Boolean.TRUE.equals(otherHex.getProperties().get("occupied"))
-                            && isAdjacent(hex, otherHex)) {
-                        String otherPlayer = (String) otherHex.getProperties().get("player");
-                        if (!otherPlayer.equals(isPlayerOneTurn ? "Player1" : "Player2")) {
-                            touchesOpponent = true;
-                            int oppGroupSize = computeGroupSize(otherHex, otherPlayer, parent);
-                            if (oppGroupSize >= newGroupSize) {
-                                parent.getChildren().remove(token);
-                                hex.getProperties().put("occupied", false);
-                                hex.getProperties().remove("player");
-                                System.out.println("Illegal capturing move: adjacent opponent group is not smaller.");
-                                return;
-                            }
-                        }
+            // Find all opponent groups that touch any hex in your group
+            List<List<Polygon>> oppGroups = new ArrayList<>();
+            Set<Polygon> seenOpp = new HashSet<>();
+            for (Polygon p : myGroup) {
+                for (Object obj : parent.getChildren()) {
+                    if (!(obj instanceof Polygon)) continue;
+                    Polygon other = (Polygon) obj;
+                    boolean isOpp = Boolean.TRUE.equals(other.getProperties().get("occupied"))
+                            && them.equals(other.getProperties().get("player"));
+                    if (isOpp && isAdjacent(p, other) && !seenOpp.contains(other)) {
+                        // get the full connected component for this opponent stone
+                        List<Polygon> group = computeGroup(other, them, parent);
+                        oppGroups.add(group);
+                        seenOpp.addAll(group);
                     }
                 }
             }
 
-            if (!touchesOpponent) {
-                parent.getChildren().remove(token);
-                hex.getProperties().put("occupied", false);
-                hex.getProperties().remove("player");
-                showInvalidMoveMessage("Illegal capturing move: must touch an opponent stone.");
+            //  Illegal capture if no opponent group is touched
+            if (oppGroups.isEmpty()) {
+                undoPlacement(token, hex);
+                showInvalidMoveMessage("Illegal capturing move: must touch at least one opponent group.");
                 return;
             }
-
-            for (Object obj : new ArrayList<>(parent.getChildren())) {
-                if (obj instanceof Polygon otherHex && otherHex != hex) {
-                    if (Boolean.TRUE.equals(otherHex.getProperties().get("occupied"))
-                            && isAdjacent(hex, otherHex)) {
-                        String otherPlayer = (String) otherHex.getProperties().get("player");
-                        if (!otherPlayer.equals(isPlayerOneTurn ? "Player1" : "Player2")) {
-                            removeToken(otherHex, parent);
-                        }
-                    }
+            //  Illegal capture if any touched opponent group is not strictly smaller
+            for (List<Polygon> opp : oppGroups) {
+                if (opp.size() >= myGroupSize) {
+                    undoPlacement(token, hex);
+                    showInvalidMoveMessage("Illegal capturing move: adjacent opponent group is not smaller.");
+                    return;
                 }
+            }
+            // Remove all stones in each smaller opponent group
+            for (List<Polygon> opp : oppGroups) {
+                for (Polygon oppHex : opp) removeToken(oppHex, parent);
             }
 
             // WIN CHECK after capturing move
@@ -310,7 +287,6 @@ public class HexGame {
                     }
                 }
             }
-
             if ((player1TokensPlaced > 0 && player2TokensPlaced > 0) && !opponentHasTokens) {
                 String winner;
                 if (isPlayerOneTurn) {
@@ -328,9 +304,7 @@ public class HexGame {
                 return;
             }
 
-
-            System.out.println("Capturing move performed. Make another move!");
-            messageLabel.setText("");
+            messageLabel.setText("Capturing move performed. Make another move!");
             return;
         }
 
@@ -348,7 +322,6 @@ public class HexGame {
                 }
             }
         }
-
         if ((player1TokensPlaced > 0 && player2TokensPlaced > 0) && !opponentHasTokens) {
             String winner = isPlayerOneTurn ? "Player 1 (BLUE)" : "Player 2 (RED)";
             turnLabel.setText("🎉 " + winner + " wins!");
@@ -358,13 +331,54 @@ public class HexGame {
             return;
         }
 
+        // Switch turn
         messageLabel.setText("");
         isPlayerOneTurn = !isPlayerOneTurn;
         turnLabel.setText("Your turn: " + (isPlayerOneTurn ? "Player 1" : "Player 2"));
-        Image newIcon = isPlayerOneTurn
-                ? new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player1.png")))
-                : new Image(Objects.requireNonNull(getClass().getResourceAsStream("/comp20050/hexagonalboard/player2.png")));
-        turnIcon.setImage(newIcon);
+        Image icon = new Image(Objects.requireNonNull(
+                getClass().getResourceAsStream(
+                        isPlayerOneTurn
+                                ? "/comp20050/hexagonalboard/player1.png"
+                                : "/comp20050/hexagonalboard/player2.png")));
+        turnIcon.setImage(icon);
+    }
+
+
+
+
+    //Helper returns the connected component (list of hexes) for the given player starting at startHex.
+    private List<Polygon> computeGroup(Polygon startHex, String player, Pane parent) {
+        List<Polygon> queue = new ArrayList<>();
+        List<Polygon> visited = new ArrayList<>();
+        queue.add(startHex);
+
+        while (!queue.isEmpty()) {
+            Polygon current = queue.remove(0);
+            if (visited.contains(current)) continue;
+            visited.add(current);
+
+            for (Object obj : parent.getChildren()) {
+                if (!(obj instanceof Polygon)) continue;
+                Polygon other = (Polygon) obj;
+                if (visited.contains(other)) continue;
+                // Only follow same-player occupied adjacent hexes
+                if (!Boolean.TRUE.equals(other.getProperties().get("occupied"))) continue;
+                if (!player.equals(other.getProperties().get("player"))) continue;
+                if (!isAdjacent(current, other)) continue;
+                queue.add(other);
+            }
+        }
+        return visited;
+    }
+
+    // helper reverts a placement when a capturing move is illegal.
+
+    private void undoPlacement(Circle token, Polygon hex) {
+        Pane parent = (Pane) hex.getParent();
+        parent.getChildren().remove(token);
+        hex.getProperties().put("occupied", false);
+        hex.getProperties().remove("player");
+        hex.setFill(Color.WHITE);
     }
 
     // Helper method to check if two hexes are adjacent based on center distance.
@@ -387,31 +401,6 @@ public class HexGame {
 
         double distance = Math.hypot(x1 - x2, y1 - y2);
         return distance < HEX_SIZE * 2.0;
-    }
-
-    // Helper method to compute the group size for a given player starting at a hex.
-    private int computeGroupSize(Polygon hex, String player, Pane parent) {
-        ArrayList<Polygon> queue = new ArrayList<>();
-        ArrayList<Polygon> visited = new ArrayList<>();
-        queue.add(hex);
-        while (!queue.isEmpty()) {
-            Polygon current = queue.remove(0);
-            if (!visited.contains(current)) {
-                visited.add(current);
-                for (Object obj : parent.getChildren()) {
-                    if (obj instanceof Polygon) {
-                        Polygon otherHex = (Polygon) obj;
-                        if (!visited.contains(otherHex)
-                                && isAdjacent(current, otherHex)
-                                && Boolean.TRUE.equals(otherHex.getProperties().get("occupied"))
-                                && player.equals(otherHex.getProperties().get("player"))) {
-                            queue.add(otherHex);
-                        }
-                    }
-                }
-            }
-        }
-        return visited.size();
     }
 
     // Helper method to remove a token from a hex and mark it as unoccupied.
