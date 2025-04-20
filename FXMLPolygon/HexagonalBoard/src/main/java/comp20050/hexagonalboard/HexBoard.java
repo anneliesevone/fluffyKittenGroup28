@@ -12,6 +12,7 @@ public class HexBoard {
     private static final int BASE_SIZE = 7;  // Number of rings
 
     public static Pane createHexagonalBoard() {
+
         Pane pane = new Pane();
         double centerX = 600;  // Center X of the board
         double centerY = 350;  // Center Y of the board

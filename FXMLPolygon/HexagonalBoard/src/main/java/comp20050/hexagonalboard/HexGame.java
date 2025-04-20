@@ -102,12 +102,17 @@ public class HexGame {
         // Layout for the top: turn indicator and turn label
         HBox topBox = new HBox(10, turnIcon, turnLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setStyle("-fx-padding: 10px;");
+        topBox.setStyle("-fx-padding: 10px; -fx-background-color: black;");
+        turnLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px; -fx-text-fill: white;");
+
 
         // Layout for the bottom: message label, restart and exit buttons
         HBox bottomBox = new HBox(20, messageLabel, scoreLabel, restartButton, exitButton);
         bottomBox.setAlignment(Pos.CENTER);
-        bottomBox.setStyle("-fx-padding: 20px; -fx-background-color: #eeeeee;");
+        bottomBox.setStyle("-fx-padding: 20px; -fx-background-color: black;");
+        messageLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px; -fx-text-fill: white;");
+        scoreLabel.setStyle("-fx-font-size: 14px; -fx-padding: 10px; -fx-text-fill: white;");
+
         bottomBox.setPrefHeight(30);
 
         root.setTop(topBox);
@@ -129,6 +134,8 @@ public class HexGame {
 
     private Pane createHexagonalBoard() {
         Pane pane = new Pane();
+        pane.setStyle("-fx-background-color: black;");
+
         double centerX = 500;
         double centerY = 230;
 
@@ -156,18 +163,20 @@ public class HexGame {
         }
 
         hex.getPoints().addAll(Arrays.stream(points).boxed().toArray(Double[]::new));
-        hex.setFill(Color.WHITE);
-        hex.setStroke(Color.BLACK);
+        hex.setFill(Color.BLACK);
+        hex.setStroke(Color.YELLOW);
+        hex.setStrokeWidth(2);
+
 
         // Highlight on hover if unoccupied
         hex.setOnMouseEntered(event -> {
             if (!Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
-                hex.setFill(Color.LIGHTYELLOW);
+                hex.setFill(Color.DARKGREY);
             }
         });
         hex.setOnMouseExited(event -> {
             if (!Boolean.TRUE.equals(hex.getProperties().get("occupied"))) {
-                hex.setFill(Color.WHITE);
+                hex.setFill(Color.BLACK);
             }
         });
         hex.setOnMouseClicked(event -> handleHexClick(hex));
@@ -208,7 +217,7 @@ public class HexGame {
         //Create and style the token (circle)
         double tokenRadius = HEX_SIZE * 0.6;
         Circle token = new Circle(centerX, centerY, tokenRadius);
-        token.setFill(isPlayerOneTurn ? Color.BLUE : Color.RED);
+        token.setFill(isPlayerOneTurn ? Color.YELLOW : Color.RED);
         token.setStroke(Color.BLACK);
 
         //Add token to the board pane
@@ -219,7 +228,7 @@ public class HexGame {
         hex.getProperties().put("occupied", true);
         String me = isPlayerOneTurn ? "Player1" : "Player2";
         hex.getProperties().put("player", me);
-        hex.setFill(Color.WHITE);
+        hex.setFill(Color.BLACK);
 
         // Increment the player's placed-tokens counter
         if (isPlayerOneTurn) {
@@ -291,14 +300,14 @@ public class HexGame {
                 String winner;
                 if (isPlayerOneTurn) {
                     player1Wins++;
-                    winner = "Player 1 (BLUE)";
+                    winner = "Player 1 (YELLOW)";
                 } else {
                     player2Wins++;
                     winner = "Player 2 (RED)";
                 }
-                turnLabel.setText("🎉 " + winner + " wins!");
+                turnLabel.setText("🐝 " + winner + " wins!" + "🐝");
                 turnIcon.setImage(null);
-                scoreLabel.setText("Wins - Player 1 (BLUE): " + player1Wins + " | Player 2 (RED): " + player2Wins);
+                scoreLabel.setText("Wins - Player 1 (YELLOW): " + player1Wins + " | Player 2 (RED): " + player2Wins);
                 gameOver = true;
                 restartButton.setVisible(true);
                 return;
@@ -323,8 +332,8 @@ public class HexGame {
             }
         }
         if ((player1TokensPlaced > 0 && player2TokensPlaced > 0) && !opponentHasTokens) {
-            String winner = isPlayerOneTurn ? "Player 1 (BLUE)" : "Player 2 (RED)";
-            turnLabel.setText("🎉 " + winner + " wins!");
+            String winner = isPlayerOneTurn ? "Player 1 (YELLOW)" : "Player 2 (RED)";
+            turnLabel.setText("🐝 " + winner + " wins!" + "🐝");
             turnIcon.setImage(null);
             gameOver = true;
             restartButton.setVisible(true);
@@ -378,7 +387,7 @@ public class HexGame {
         parent.getChildren().remove(token);
         hex.getProperties().put("occupied", false);
         hex.getProperties().remove("player");
-        hex.setFill(Color.WHITE);
+        hex.setFill(Color.BLACK);
     }
 
     // Helper method to check if two hexes are adjacent based on center distance.
@@ -426,7 +435,7 @@ public class HexGame {
         }
         hex.getProperties().put("occupied", false);
         hex.getProperties().remove("player");
-        hex.setFill(Color.WHITE);
+        hex.setFill(Color.BLACK);
     }
 
     // Update the message label with the provided message.
