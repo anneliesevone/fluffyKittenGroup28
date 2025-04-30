@@ -10,7 +10,6 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
-import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -18,6 +17,13 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Polygon;
 import javafx.stage.Stage;
+
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import java.util.*;
 
@@ -28,16 +34,38 @@ public class HexGame {
 
     private boolean isPlayerOneTurn = true;  // Track turns
     private boolean gameOver = false;        // Flag to indicate game over
+
     private ImageView turnIcon;              // Turn indicator image
     private Label turnLabel;
     private Label messageLabel;              // Label for messages (instead of error dialogs)
     private Button restartButton;            // Restart button (hidden until game over)
+    private Label scoreLabel; // Shows the win count
+    private Button undoButton;
+
     private int player1TokensPlaced = 0;
     private int player2TokensPlaced = 0;
     private int player1Wins = 0;
     private int player2Wins = 0;
-    private Label scoreLabel; // Shows the win count
 
+
+    private Deque<Move> moveHistory = new ArrayDeque<>();
+
+    // Records one move: where it went and what it captured.
+    private static class Move {
+        Polygon hex;
+        Circle token;
+        List<Polygon> capturedHexes;
+        List<Circle> capturedTokens;
+
+        Move(Polygon hex, Circle token,
+             List<Polygon> capturedHexes,
+             List<Circle> capturedTokens) {
+            this.hex = hex;
+            this.token = token;
+            this.capturedHexes = capturedHexes;
+            this.capturedTokens = capturedTokens;
+        }
+    }
 
     public void startGame(Stage stage) {
         // Capture current full-screen state
@@ -48,8 +76,11 @@ public class HexGame {
         gameOver = false;
         player1TokensPlaced = 0;
         player2TokensPlaced = 0;
+        moveHistory.clear(); //clear undo history when reset
 
         BorderPane root = new BorderPane();
+
+        // hex board
         Pane hexBoard = createHexagonalBoard();
         hexBoard.setMaxHeight(1000); // Limit board height so it doesn’t cover buttons
 
@@ -62,7 +93,7 @@ public class HexGame {
         messageLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px;");
         messageLabel.setText("");
         // Label to track wins
-        scoreLabel = new Label("Wins - Player 1 (BLUE): " + player1Wins + " | Player 2 (RED): " + player2Wins);
+        scoreLabel = new Label("Wins - Player 1 (Yellow): " + player1Wins + " | Player 2 (RED): " + player2Wins);
         scoreLabel.setStyle("-fx-font-size: 14px; -fx-padding: 10px;");
 
 
@@ -89,6 +120,11 @@ public class HexGame {
             Platform.exit();
             System.exit(0); // Ensure the app exits even if Platform.exit fails
         });
+        //undo button
+        undoButton = new Button("Undo");
+        undoButton.setDisable(true);
+        undoButton.setOnAction(e -> undoLastMove());
+
 
         // Restart Button (hidden until game over)
         restartButton = new Button("Restart");
@@ -107,7 +143,7 @@ public class HexGame {
 
 
         // Layout for the bottom: message label, restart and exit buttons
-        HBox bottomBox = new HBox(20, messageLabel, scoreLabel, restartButton, exitButton);
+        HBox bottomBox = new HBox(20, messageLabel, scoreLabel, undoButton, restartButton, exitButton);
         bottomBox.setAlignment(Pos.CENTER);
         bottomBox.setStyle("-fx-padding: 20px; -fx-background-color: black;");
         messageLabel.setStyle("-fx-font-size: 16px; -fx-padding: 10px; -fx-text-fill: white;");
@@ -204,6 +240,7 @@ public class HexGame {
     Performs multi-hex capture when your group touches smaller opponent groups.
    */
     private void placeToken(Polygon hex) {
+
         // Calculate crenter of hex and draw token
         double centerX = 0, centerY = 0;
         var points = hex.getPoints();
@@ -228,7 +265,7 @@ public class HexGame {
         hex.getProperties().put("occupied", true);
         String me = isPlayerOneTurn ? "Player1" : "Player2";
         hex.getProperties().put("player", me);
-        hex.setFill(Color.BLACK);
+        hex.setFill(Color.BLACK);//Repaint the hex black to show it’s no longer empty
 
         // Increment the player's placed-tokens counter
         if (isPlayerOneTurn) {
@@ -236,6 +273,10 @@ public class HexGame {
         } else {
             player2TokensPlaced++;
         }
+
+        // prepare undo tracking
+        List<Polygon> capturedHexes = new ArrayList<>();
+        List<Circle> capturedTokens = new ArrayList<>();
 
         // Compute your connected group of stones after placement
         List<Polygon> myGroup = computeGroup(hex, me, parent);
@@ -245,12 +286,16 @@ public class HexGame {
             int myGroupSize = myGroup.size();
             String them = isPlayerOneTurn ? "Player2" : "Player1";
 
-            // Find all opponent groups that touch any hex in your group
+            // Will hold each distinct opponent connected component touching your group
             List<List<Polygon>> oppGroups = new ArrayList<>();
+            // avoid processing the same opponent hex or group more than once
             Set<Polygon> seenOpp = new HashSet<>();
+
+            // For each hex in your newly formed group
             for (Polygon p : myGroup) {
+                //look at every node in the board plane
                 for (Object obj : parent.getChildren()) {
-                    if (!(obj instanceof Polygon)) continue;
+                    if (!(obj instanceof Polygon)) continue;// skip non-hex nodes
                     Polygon other = (Polygon) obj;
                     boolean isOpp = Boolean.TRUE.equals(other.getProperties().get("occupied"))
                             && them.equals(other.getProperties().get("player"));
@@ -277,82 +322,122 @@ public class HexGame {
                     return;
                 }
             }
+            // capture
             // Remove all stones in each smaller opponent group
             for (List<Polygon> opp : oppGroups) {
-                for (Polygon oppHex : opp) removeToken(oppHex, parent);
+                for (Polygon h : opp) {
+                    Circle rem = removeToken(h, parent);
+                    capturedHexes.add(h);
+                    capturedTokens.add(rem);
+                }
             }
 
-            // WIN CHECK after capturing move
-            String opponent = isPlayerOneTurn ? "Player2" : "Player1";
-            boolean opponentHasTokens = false;
-            for (Object obj : parent.getChildren()) {
-                if (obj instanceof Polygon otherHex) {
-                    if (Boolean.TRUE.equals(otherHex.getProperties().get("occupied"))) {
-                        String owner = (String) otherHex.getProperties().get("player");
-                        if (opponent.equals(owner)) {
-                            opponentHasTokens = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if ((player1TokensPlaced > 0 && player2TokensPlaced > 0) && !opponentHasTokens) {
-                String winner;
-                if (isPlayerOneTurn) {
-                    player1Wins++;
-                    winner = "Player 1 (YELLOW)";
-                } else {
-                    player2Wins++;
-                    winner = "Player 2 (RED)";
-                }
-                turnLabel.setText("🐝 " + winner + " wins!" + "🐝");
-                turnIcon.setImage(null);
-                scoreLabel.setText("Wins - Player 1 (YELLOW): " + player1Wins + " | Player 2 (RED): " + player2Wins);
-                gameOver = true;
-                restartButton.setVisible(true);
+            // win-check after capture
+            if (checkWin(parent)) {
+                recordMove(hex, token, capturedHexes, capturedTokens);
+                endGame();
                 return;
             }
 
             messageLabel.setText("Capturing move performed. Make another move!");
+            recordMove(hex, token, capturedHexes, capturedTokens);
             return;
         }
 
-        // WIN CHECK after regular (non-capturing) move
-        String opponent = isPlayerOneTurn ? "Player2" : "Player1";
-        boolean opponentHasTokens = false;
+        // reset message on normal capture move
+        messageLabel.setText("");
+        isPlayerOneTurn = !isPlayerOneTurn;
+        updateTurnIcon();
+        recordMove(hex, token, capturedHexes, capturedTokens);
+    }
+
+
+
+    // Push onto history stack and enable Undo.
+    private void recordMove(Polygon hex, Circle token, List<Polygon> caps, List<Circle> capsTok) {
+        moveHistory.push(new Move(hex, token, caps, capsTok));
+        undoButton.setDisable(false);
+    }
+
+    // Returns true and updates win counts if the other side has no tokens.
+    private boolean checkWin(Pane parent) {
+        String opp = isPlayerOneTurn ? "Player2" : "Player1";
+        boolean hasOpp = false;
         for (Object obj : parent.getChildren()) {
-            if (obj instanceof Polygon otherHex) {
-                if (Boolean.TRUE.equals(otherHex.getProperties().get("occupied"))) {
-                    String owner = (String) otherHex.getProperties().get("player");
-                    if (opponent.equals(owner)) {
-                        opponentHasTokens = true;
+            if (obj instanceof Polygon h) {
+                if (Boolean.TRUE.equals(h.getProperties().get("occupied"))) {
+                    String owner = (String) h.getProperties().get("player");
+                    if (opp.equals(owner)) {
+                        hasOpp = true;
                         break;
                     }
                 }
             }
         }
-        if ((player1TokensPlaced > 0 && player2TokensPlaced > 0) && !opponentHasTokens) {
-            String winner = isPlayerOneTurn ? "Player 1 (YELLOW)" : "Player 2 (RED)";
-            turnLabel.setText("🐝 " + winner + " wins!" + "🐝");
-            turnIcon.setImage(null);
-            gameOver = true;
-            restartButton.setVisible(true);
-            return;
+        if (!hasOpp && player1TokensPlaced > 0 && player2TokensPlaced > 0) {
+            if (isPlayerOneTurn) player1Wins++;
+            else player2Wins++;
+            scoreLabel.setText(
+                    "Wins - P1 (YELLOW): " + player1Wins +
+                            " | P2 (RED): " + player2Wins
+            );
+            return true;
+        }
+        return false;
+    }
+
+    // Undo the very last move.
+    private void undoLastMove() {
+        if (moveHistory.isEmpty()) return;
+        Move last = moveHistory.pop();
+        Pane parent = (Pane) last.hex.getParent();
+
+        // remove placed token
+        parent.getChildren().remove(last.token);
+        last.hex.getProperties().put("occupied", false);
+        last.hex.getProperties().remove("player");
+        last.hex.setFill(Color.BLACK);
+
+        // restore captured tokens
+        for (int i = 0; i < last.capturedHexes.size(); i++) {
+            Polygon h = last.capturedHexes.get(i);
+            Circle c = last.capturedTokens.get(i);
+            parent.getChildren().add(c);
+            h.getProperties().put("occupied", true);
+            String owner = isPlayerOneTurn ? "Player2" : "Player1";
+            h.getProperties().put("player", owner);
+            h.setFill(Color.BLACK);
         }
 
-        // Switch turn
-        messageLabel.setText("");
+        // fix counts and turn
+        if (isPlayerOneTurn) player2TokensPlaced--;
+        else player1TokensPlaced--;
         isPlayerOneTurn = !isPlayerOneTurn;
+        updateTurnIcon();
+        //Update the on‐screen turn icon and clear any messages.
+        messageLabel.setText("");
+        undoButton.setDisable(moveHistory.isEmpty());
+    }
+
+    private void updateTurnIcon() {
         turnLabel.setText("Your turn: " + (isPlayerOneTurn ? "Player 1" : "Player 2"));
-        Image icon = new Image(Objects.requireNonNull(
-                getClass().getResourceAsStream(
-                        isPlayerOneTurn
-                                ? "/comp20050/hexagonalboard/player1.png"
-                                : "/comp20050/hexagonalboard/player2.png")));
-        turnIcon.setImage(icon);
+        String path = isPlayerOneTurn
+                ? "/comp20050/hexagonalboard/player1.png"
+                : "/comp20050/hexagonalboard/player2.png";
+        turnIcon.setImage(new Image(Objects.requireNonNull(
+                getClass().getResourceAsStream(path)
+        )));
     }
 
 
+    // Finalizes the win and shows it on the turn label.
+    private void endGame() {
+        String winner = isPlayerOneTurn ? "Player 1 (YELLOW)" : "Player 2 (RED)";
+        turnLabel.setText("🐝 " + winner + " wins! 🐝");
+        turnIcon.setImage(null);
+        gameOver = true;
+        restartButton.setVisible(true);
+    }
 
 
     //Helper returns the connected component (list of hexes) for the given player starting at startHex.
@@ -381,7 +466,6 @@ public class HexGame {
     }
 
     // helper reverts a placement when a capturing move is illegal.
-
     private void undoPlacement(Circle token, Polygon hex) {
         Pane parent = (Pane) hex.getParent();
         parent.getChildren().remove(token);
@@ -413,22 +497,25 @@ public class HexGame {
     }
 
     // Helper method to remove a token from a hex and mark it as unoccupied.
-    private void removeToken(Polygon hex, Pane parent) {
+    private Circle removeToken(Polygon hex, Pane parent) {
         double centerX = 0, centerY = 0;
-        var points = hex.getPoints();
+        List<Double> points = hex.getPoints();
         for (int i = 0; i < points.size(); i += 2) {
             centerX += points.get(i);
             centerY += points.get(i + 1);
         }
         centerX /= (points.size() / 2.0);
         centerY /= (points.size() / 2.0);
-        for (Object obj : new ArrayList<>(parent.getChildren())) {
-            if (obj instanceof Circle) {
-                Circle token = (Circle) obj;
-                double dx = token.getCenterX() - centerX;
-                double dy = token.getCenterY() - centerY;
+
+        Circle found = null;
+        List<javafx.scene.Node> copy = new ArrayList<>(parent.getChildren());
+        for (javafx.scene.Node node : copy) {
+            if (node instanceof Circle c) {
+                double dx = c.getCenterX()  - centerX;
+                double dy = c.getCenterY()- centerY;
                 if (Math.hypot(dx, dy) < HEX_SIZE) {
-                    parent.getChildren().remove(token);
+                    found = c;
+                    parent.getChildren().remove(c);
                     break;
                 }
             }
@@ -436,6 +523,7 @@ public class HexGame {
         hex.getProperties().put("occupied", false);
         hex.getProperties().remove("player");
         hex.setFill(Color.BLACK);
+        return found;
     }
 
     // Update the message label with the provided message.
