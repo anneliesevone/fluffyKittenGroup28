@@ -2,6 +2,7 @@ package comp20050.hexagonalboard;
 
 import javafx.application.Platform;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -32,23 +33,46 @@ public class HexGame {
     private static final double HEX_HEIGHT = HEX_SIZE * Math.sqrt(3);
     private static final int BASE_SIZE = 7;
 
-    private boolean isPlayerOneTurn = true;  // Track turns
-    private boolean gameOver = false;        // Flag to indicate game over
+    boolean isPlayerOneTurn = true;  // Track turns
+    boolean gameOver = false;        // Flag to indicate game over
 
-    private ImageView turnIcon;              // Turn indicator image
-    private Label turnLabel;
-    private Label messageLabel;              // Label for messages (instead of error dialogs)
-    private Button restartButton;            // Restart button (hidden until game over)
-    private Label scoreLabel; // Shows the win count
-    private Button undoButton;
+    protected ImageView turnIcon;              // Turn indicator image
+    Label turnLabel;
+    Label messageLabel;              // Label for messages (instead of error dialogs)
+    Button restartButton;            // Restart button (hidden until game over)
+    Label scoreLabel; // Shows the win count
+    Button undoButton;
 
-    private int player1TokensPlaced = 0;
-    private int player2TokensPlaced = 0;
-    private int player1Wins = 0;
-    private int player2Wins = 0;
+    int player1TokensPlaced = 0;
+    int player2TokensPlaced = 0;
+    int player1Wins = 0;
+    int player2Wins = 0;
 
 
     private Deque<Move> moveHistory = new ArrayDeque<>();
+
+
+    void resetState(Pane board) {  // Helper for test
+        // Remove all token circles
+        board.getChildren().removeIf(node -> node instanceof Circle);
+
+        // Clear occupancy properties on each hex
+        for (Node node : board.getChildren()) {
+            if (node instanceof Polygon) {
+                Map<Object,Object> props = node.getProperties();
+                props.remove("occupied");
+                props.remove("player");
+            }
+        }
+
+        // Reset game‐logic state
+        isPlayerOneTurn    = true;
+        gameOver           = false;
+        player1TokensPlaced = 0;
+        player2TokensPlaced = 0;
+        moveHistory.clear();
+    }
+
 
     // Records one move: where it went and what it captured.
     private static class Move {
@@ -168,7 +192,7 @@ public class HexGame {
     }
 
 
-    private Pane createHexagonalBoard() {
+    Pane createHexagonalBoard() {
         Pane pane = new Pane();
         pane.setStyle("-fx-background-color: black;");
 
@@ -220,7 +244,7 @@ public class HexGame {
         return hex;
     }
 
-    private void handleHexClick(Polygon hex) {
+    void handleHexClick(Polygon hex) {
         // Ignore clicks if game is over.
         if (gameOver) return;
 
@@ -360,7 +384,7 @@ public class HexGame {
     }
 
     // Returns true and updates win counts if the other side has no tokens.
-    private boolean checkWin(Pane parent) {
+    boolean checkWin(Pane parent) {
         String opp = isPlayerOneTurn ? "Player2" : "Player1";
         boolean hasOpp = false;
         for (Object obj : parent.getChildren()) {
@@ -387,7 +411,7 @@ public class HexGame {
     }
 
     // Undo the very last move.
-    private void undoLastMove() {
+    void undoLastMove() {
         if (moveHistory.isEmpty()) return;
         Move last = moveHistory.pop();
         Pane parent = (Pane) last.hex.getParent();
@@ -441,7 +465,7 @@ public class HexGame {
 
 
     //Helper returns the connected component (list of hexes) for the given player starting at startHex.
-    private List<Polygon> computeGroup(Polygon startHex, String player, Pane parent) {
+    List<Polygon> computeGroup(Polygon startHex, String player, Pane parent) {
         List<Polygon> queue = new ArrayList<>();
         List<Polygon> visited = new ArrayList<>();
         queue.add(startHex);
@@ -475,7 +499,7 @@ public class HexGame {
     }
 
     // Helper method to check if two hexes are adjacent based on center distance.
-    private boolean isAdjacent(Polygon hex1, Polygon hex2) {
+    boolean isAdjacent(Polygon hex1, Polygon hex2) {
         double x1 = 0, y1 = 0;
         for (int i = 0; i < hex1.getPoints().size(); i += 2) {
             x1 += hex1.getPoints().get(i);
