@@ -16,8 +16,8 @@ class LogicTest {
     @BeforeEach
     void setUp() {
         game = new HexGame();
-        board = game.createHexagonalBoard();   // package‐private in HexGame
-        game.resetState(board);                // your own helper to clear state & counters
+        board = game.createHexagonalBoard();
+        game.resetState(board);
     }
 
     @Test

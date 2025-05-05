@@ -36,7 +36,7 @@ class IntegrationTest {
         board = game.createHexagonalBoard();
         game.resetState(board);
 
-        // Inject the UI controls so none of the logic hits NPEs
+
         game.turnLabel     = new Label("Your turn: Player 1");
         game.messageLabel  = new Label();
         game.scoreLabel    = new Label(
